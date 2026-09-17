@@ -101,3 +101,53 @@ export function updateResourcesFromWorkSession(
     elapsedMinutes
   );
 }
+
+export type WorkSessionSyncResult = {
+  resources: PlayerResources;
+  session: WorkSession;
+};
+
+export function syncWorkSession(
+  resources: PlayerResources,
+  playerClass: PlayerClass,
+  session: WorkSession,
+  currentTime: string
+): WorkSessionSyncResult {
+  if (
+    session.status !== 'working' ||
+    session.lastUpdatedAt === null
+  ) {
+    return {
+      resources,
+      session,
+    };
+  }
+
+  const elapsedMinutes = getElapsedMinutes(
+    session.lastUpdatedAt,
+    currentTime
+  );
+
+  if (elapsedMinutes <= 0) {
+    return {
+      resources,
+      session,
+    };
+  }
+
+  const updatedResources = applyWorkDrain(
+    resources,
+    playerClass,
+    elapsedMinutes
+  );
+
+  const updatedSession: WorkSession = {
+    ...session,
+    lastUpdatedAt: currentTime,
+  };
+
+  return {
+    resources: updatedResources,
+    session: updatedSession,
+  };
+}

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     applyWorkDrain,
     getElapsedMinutes,
+    syncWorkSession,
 } from './WorkSessionEngine';
 
 describe('WorkSessionEngine', () => {
@@ -105,5 +106,34 @@ describe('WorkSessionEngine', () => {
     );
 
     expect(result).toBe(0);
+  });
+
+  it('debe actualizar recursos y guardar la nueva hora de actualización', () => {
+    const result = syncWorkSession(
+      {
+        health: 100,
+        mana: 120,
+        stamina: 80,
+      },
+      'wizard',
+      {
+        id: 'session-001',
+        status: 'working',
+        startedAt: '2026-09-17T09:00:00',
+        lastUpdatedAt: '2026-09-17T09:00:00',
+        finishedAt: null,
+      },
+      '2026-09-17T11:30:00'
+    );
+
+    expect(result.resources).toEqual({
+      health: 100,
+      mana: 100,
+      stamina: 75,
+    });
+
+    expect(result.session.lastUpdatedAt).toBe(
+      '2026-09-17T11:30:00'
+    );
   });
 });
