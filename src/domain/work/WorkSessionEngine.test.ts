@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyWorkDrain } from './WorkSessionEngine';
+import {
+    applyWorkDrain,
+    getElapsedMinutes,
+} from './WorkSessionEngine';
 
 describe('WorkSessionEngine', () => {
   it('debe gastar correctamente los recursos de un hechicero durante 1 hora', () => {
@@ -84,5 +87,23 @@ describe('WorkSessionEngine', () => {
     );
 
     expect(result.health).toBe(73);
+  });
+
+  it('debe calcular correctamente los minutos transcurridos', () => {
+    const result = getElapsedMinutes(
+      '2026-09-17T09:00:00',
+      '2026-09-17T11:30:00'
+    );
+
+    expect(result).toBe(150);
+  });
+
+  it('no debe devolver tiempo negativo', () => {
+    const result = getElapsedMinutes(
+      '2026-09-17T11:30:00',
+      '2026-09-17T09:00:00'
+    );
+
+    expect(result).toBe(0);
   });
 });

@@ -1,24 +1,86 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+import { PlayerResources } from '../domain/player/Player';
+import { applyRecoveryAction } from '../domain/resources/ResourceEngine';
+import { applyWorkDrain } from '../domain/work/WorkSessionEngine';
 
 export default function HomeScreen() {
+  const [resources, setResources] = useState<PlayerResources>({
+    health: 100,
+    mana: 120,
+    stamina: 80,
+  });
+
+  function workOneHour() {
+    const newResources = applyWorkDrain(
+      resources,
+      'wizard',
+      60
+    );
+
+    setResources(newResources);
+  }
+
+  function rest() {
+    const newResources = applyRecoveryAction(
+      resources,
+      'wizard',
+      'rest'
+    );
+
+    setResources(newResources);
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>⚔️</Text>
+      <Text style={styles.title}>⚔️ LIFE RPG</Text>
 
-      <Text style={styles.title}>LIFE RPG</Text>
+      <Text style={styles.className}>Hechicero · Nivel 1</Text>
 
-      <Text style={styles.subtitle}>
-        Tu vida es tu partida.
-      </Text>
+      <View style={styles.character}>
+        <Text style={styles.characterEmoji}>🧙‍♂️</Text>
+      </View>
 
-      <TouchableOpacity style={styles.button}>
+      <View style={styles.stats}>
+        <Text style={styles.health}>
+          ❤️ Vida: {resources.health} / 100
+        </Text>
+
+        <Text style={styles.mana}>
+          🔮 Maná: {Math.round(resources.mana)} / 120
+        </Text>
+
+        <Text style={styles.stamina}>
+          ⚡ Estamina: {Math.round(resources.stamina)} / 80
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.workButton}
+        onPress={workOneHour}
+      >
         <Text style={styles.buttonText}>
-          COMENZAR AVENTURA
+          ⚒️ SIMULAR 1 HORA DE TRABAJO
         </Text>
       </TouchableOpacity>
 
-      <Text style={styles.version}>
-        Versión 0.1
+      <TouchableOpacity
+        style={styles.restButton}
+        onPress={rest}
+      >
+        <Text style={styles.buttonText}>
+          💤 DESCANSAR
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.note}>
+        Demo temporal del motor de recursos
       </Text>
     </View>
   );
@@ -33,43 +95,76 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  logo: {
-    fontSize: 72,
-    marginBottom: 20,
-  },
-
   title: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#F5F5F5',
-    letterSpacing: 4,
+    color: '#FFFFFF',
+    letterSpacing: 2,
   },
 
-  subtitle: {
-    marginTop: 10,
-    fontSize: 18,
+  className: {
+    marginTop: 8,
     color: '#A5A5B0',
+    fontSize: 16,
   },
 
-  button: {
-    marginTop: 50,
+  character: {
+    marginVertical: 35,
+  },
+
+  characterEmoji: {
+    fontSize: 100,
+  },
+
+  stats: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 35,
+  },
+
+  health: {
+    color: '#FF6B6B',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+
+  mana: {
+    color: '#8EA7FF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+
+  stamina: {
+    color: '#FFD166',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+
+  workButton: {
     backgroundColor: '#7C5CFC',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    width: '100%',
+    padding: 16,
     borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  restButton: {
+    backgroundColor: '#3A3A46',
+    width: '100%',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
   },
 
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
     fontWeight: 'bold',
-    letterSpacing: 1,
   },
 
-  version: {
-    position: 'absolute',
-    bottom: 30,
-    color: '#5F5F6B',
+  note: {
+    marginTop: 30,
+    color: '#656573',
     fontSize: 12,
   },
 });

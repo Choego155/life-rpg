@@ -3,6 +3,7 @@ import {
     PlayerClass,
     PlayerResources,
 } from '../player/Player';
+import { WorkSession } from './WorkSession';
 
 function clampMin(value: number, min: number): number {
   return Math.max(min, value);
@@ -37,5 +38,42 @@ export function applyWorkDrain(
     stamina: roundToTwoDecimals(
       clampMin(resources.stamina - staminaDrain, 0)
     ),
+  };
+}
+
+export function getElapsedMinutes(
+  from: string,
+  to: string
+): number {
+  const fromTime = new Date(from).getTime();
+  const toTime = new Date(to).getTime();
+
+  const elapsedMilliseconds = toTime - fromTime;
+  const elapsedMinutes = elapsedMilliseconds / 1000 / 60;
+
+  return Math.max(0, elapsedMinutes);
+}
+export function startWorkSession(
+  id: string,
+  startedAt: string
+): WorkSession {
+  return {
+    id,
+    status: 'working',
+    startedAt,
+    lastUpdatedAt: startedAt,
+    finishedAt: null,
+  };
+}
+
+export function finishWorkSession(
+  session: WorkSession,
+  finishedAt: string
+): WorkSession {
+  return {
+    ...session,
+    status: 'finished',
+    lastUpdatedAt: finishedAt,
+    finishedAt,
   };
 }
