@@ -77,3 +77,27 @@ export function finishWorkSession(
     finishedAt,
   };
 }
+export function updateResourcesFromWorkSession(
+  resources: PlayerResources,
+  playerClass: PlayerClass,
+  session: WorkSession,
+  currentTime: string
+): PlayerResources {
+  if (
+    session.status !== 'working' ||
+    session.lastUpdatedAt === null
+  ) {
+    return resources;
+  }
+
+  const elapsedMinutes = getElapsedMinutes(
+    session.lastUpdatedAt,
+    currentTime
+  );
+
+  return applyWorkDrain(
+    resources,
+    playerClass,
+    elapsedMinutes
+  );
+}
