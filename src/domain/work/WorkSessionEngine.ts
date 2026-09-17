@@ -150,4 +150,29 @@ export function syncWorkSession(
     resources: updatedResources,
     session: updatedSession,
   };
+  
+}
+
+export function finishWorkSessionWithSync(
+  resources: PlayerResources,
+  playerClass: PlayerClass,
+  session: WorkSession,
+  finishedAt: string
+): WorkSessionSyncResult {
+  const synced = syncWorkSession(
+    resources,
+    playerClass,
+    session,
+    finishedAt
+  );
+
+  const finishedSession = finishWorkSession(
+    synced.session,
+    finishedAt
+  );
+
+  return {
+    resources: synced.resources,
+    session: finishedSession,
+  };
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     applyWorkDrain,
+    finishWorkSessionWithSync,
     getElapsedMinutes,
     syncWorkSession,
 } from './WorkSessionEngine';
@@ -136,4 +137,33 @@ describe('WorkSessionEngine', () => {
       '2026-09-17T11:30:00'
     );
   });
+it('debe calcular el desgaste pendiente antes de finalizar la jornada', () => {
+  const result = finishWorkSessionWithSync(
+    {
+      health: 100,
+      mana: 120,
+      stamina: 80,
+    },
+    'wizard',
+    {
+      id: 'session-001',
+      status: 'working',
+      startedAt: '2026-09-17T09:00:00',
+      lastUpdatedAt: '2026-09-17T09:00:00',
+      finishedAt: null,
+    },
+    '2026-09-17T12:00:00'
+  );
+
+  expect(result.resources).toEqual({
+    health: 100,
+    mana: 96,
+    stamina: 74,
+  });
+
+  expect(result.session.status).toBe('finished');
+  expect(result.session.finishedAt).toBe(
+    '2026-09-17T12:00:00'
+  );
+});
 });
