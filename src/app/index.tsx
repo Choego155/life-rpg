@@ -6,23 +6,24 @@ import {
   View,
 } from 'react-native';
 
-import { applyRecoveryAction } from '../domain/resources/ResourceEngine';
-
-import {
-  finishWorkSessionWithSync,
-  startWorkSession,
-  syncWorkSession,
-  updateResourcesFromWorkSession,
-} from '../domain/work/WorkSessionEngine';
-
-import { WorkSession } from '../domain/work/WorkSession';
+import { CLASS_CONFIG } from '../config/classes';
 
 import {
   PlayerClass,
   PlayerResources,
 } from '../domain/player/Player';
 
-import { CLASS_CONFIG } from '../config/classes';
+import { applyRecoveryAction } from '../domain/resources/ResourceEngine';
+
+import { WorkSession } from '../domain/work/WorkSession';
+
+import {
+  finishWorkSessionWithSync,
+  pauseWorkSessionWithSync,
+  resumeWorkSession,
+  startWorkSession,
+  updateResourcesFromWorkSession,
+} from '../domain/work/WorkSessionEngine';
 
 const PLAYER_CLASS: PlayerClass = 'wizard';
 
@@ -44,10 +45,6 @@ export default function HomeScreen() {
   const [currentTime, setCurrentTime] =
     useState(new Date());
 
-  /*
-   * Este reloj solamente actualiza lo que vemos.
-   * NO descuenta recursos directamente.
-   */
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -59,12 +56,18 @@ export default function HomeScreen() {
   const isWorking =
     session?.status === 'working';
 
+  const isOnBreak =
+    session?.status === 'break';
+
+  const canStart =
+    !session ||
+    session.status === 'finished';
+
   /*
-   * Mientras estamos trabajando calculamos
-   * cómo deberían verse los recursos AHORA.
+   * Mientras trabajamos mostramos los recursos
+   * calculados según el tiempo real transcurrido.
    *
-   * No estamos modificando todavía
-   * los recursos guardados.
+   * Durante un descanso no existe desgaste.
    */
   const visibleResources =
     isWorking && session
@@ -78,66 +81,80 @@ export default function HomeScreen() {
 
   function handleStartWork() {
     const now = new Date();
-    const startedAt = now.toISOString();
 
     const newSession = startWorkSession(
       `session-${Date.now()}`,
-      startedAt
+      now.toISOString()
     );
 
     setSession(newSession);
     setCurrentTime(now);
   }
 
-  function handleRest() {
-    /*
-     * Si estamos trabajando primero calculamos
-     * todo el desgaste pendiente.
-     */
-    if (session?.status === 'working') {
-      const now = new Date();
+  function handlePauseWork() {
+    if (
+      !session ||
+      session.status !== 'working'
+    ) {
+      return;
+    }
 
-      const synced = syncWorkSession(
-        resources,
-        PLAYER_CLASS,
+    const now = new Date();
+
+    const result = pauseWorkSessionWithSync(
+      resources,
+      PLAYER_CLASS,
+      session,
+      now.toISOString()
+    );
+
+    setResources(result.resources);
+    setSession(result.session);
+    setCurrentTime(now);
+  }
+
+  function handleResumeWork() {
+    if (
+      !session ||
+      session.status !== 'break'
+    ) {
+      return;
+    }
+
+    const now = new Date();
+
+    const resumedSession =
+      resumeWorkSession(
         session,
         now.toISOString()
       );
 
-      /*
-       * Después aplicamos el descanso.
-       */
-      const recoveredResources =
-        applyRecoveryAction(
-          synced.resources,
-          PLAYER_CLASS,
-          'rest'
-        );
+    setSession(resumedSession);
+    setCurrentTime(now);
+  }
 
-      setResources(recoveredResources);
-      setSession(synced.session);
-      setCurrentTime(now);
-
+  function handleRest() {
+    if (!isOnBreak) {
       return;
     }
 
-    /*
-     * Si no estamos trabajando simplemente
-     * recuperamos recursos.
-     */
-    setResources((currentResources) =>
+    const recoveredResources =
       applyRecoveryAction(
-        currentResources,
+        resources,
         PLAYER_CLASS,
         'rest'
-      )
-    );
+      );
+
+    setResources(recoveredResources);
   }
 
   function handleFinishWork() {
     if (
       !session ||
-      session.status !== 'working'
+      (
+        session.status !== 'working' &&
+        session.status !== 'break'
+      )
     ) {
       return;
     }
@@ -168,12 +185,16 @@ export default function HomeScreen() {
     const end =
       session.status === 'finished' &&
       session.finishedAt
-        ? new Date(session.finishedAt).getTime()
+        ? new Date(
+            session.finishedAt
+          ).getTime()
         : currentTime.getTime();
 
     const totalSeconds = Math.max(
       0,
-      Math.floor((end - start) / 1000)
+      Math.floor(
+        (end - start) / 1000
+      )
     );
 
     const hours = Math.floor(
@@ -196,6 +217,22 @@ export default function HomeScreen() {
         String(value).padStart(2, '0')
       )
       .join(':');
+  }
+
+  function getSessionLabel(): string {
+    if (!session) {
+      return '';
+    }
+
+    if (session.status === 'working') {
+      return '⚒️ Trabajando';
+    }
+
+    if (session.status === 'break') {
+      return '☕ En descanso';
+    }
+
+    return '🌙 Jornada finalizada';
   }
 
   return (
@@ -243,9 +280,7 @@ export default function HomeScreen() {
       {session && (
         <View style={styles.sessionPanel}>
           <Text style={styles.sessionStatus}>
-            {session.status === 'working'
-              ? '⚒️ Trabajando'
-              : '🌙 Jornada finalizada'}
+            {getSessionLabel()}
           </Text>
 
           <Text style={styles.timer}>
@@ -254,7 +289,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {!isWorking && (
+      {canStart && (
         <TouchableOpacity
           style={styles.startButton}
           onPress={handleStartWork}
@@ -269,10 +304,10 @@ export default function HomeScreen() {
         <>
           <TouchableOpacity
             style={styles.restButton}
-            onPress={handleRest}
+            onPress={handlePauseWork}
           >
             <Text style={styles.buttonText}>
-              💤 DESCANSAR
+              ☕ TOMAR DESCANSO
             </Text>
           </TouchableOpacity>
 
@@ -287,15 +322,35 @@ export default function HomeScreen() {
         </>
       )}
 
-      {!isWorking && (
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={handleRest}
-        >
-          <Text style={styles.buttonText}>
-            💤 DESCANSAR
-          </Text>
-        </TouchableOpacity>
+      {isOnBreak && (
+        <>
+          <TouchableOpacity
+            style={styles.recoveryButton}
+            onPress={handleRest}
+          >
+            <Text style={styles.buttonText}>
+              💤 DESCANSAR
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={handleResumeWork}
+          >
+            <Text style={styles.buttonText}>
+              ⚒️ REANUDAR JORNADA
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.finishButton}
+            onPress={handleFinishWork}
+          >
+            <Text style={styles.buttonText}>
+              🏁 FINALIZAR JORNADA
+            </Text>
+          </TouchableOpacity>
+        </>
       )}
 
       <Text style={styles.note}>
@@ -391,6 +446,15 @@ const styles = StyleSheet.create({
   },
 
   restButton: {
+    backgroundColor: '#795C34',
+    width: '100%',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  recoveryButton: {
     backgroundColor: '#3A3A46',
     width: '100%',
     padding: 16,
@@ -405,14 +469,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-  },
-
-  secondaryButton: {
-    backgroundColor: '#3A3A46',
-    width: '100%',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    marginBottom: 12,
   },
 
   buttonText: {
@@ -422,7 +479,7 @@ const styles = StyleSheet.create({
   },
 
   note: {
-    marginTop: 25,
+    marginTop: 15,
     color: '#656573',
     fontSize: 12,
   },
