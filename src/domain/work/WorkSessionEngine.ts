@@ -1,7 +1,7 @@
 import { CLASS_CONFIG } from '../../config/classes';
 import {
-    PlayerClass,
-    PlayerResources,
+  PlayerClass,
+  PlayerResources,
 } from '../player/Player';
 import { WorkSession } from './WorkSession';
 
@@ -174,5 +174,44 @@ export function finishWorkSessionWithSync(
   return {
     resources: synced.resources,
     session: finishedSession,
+  };
+}
+export function pauseWorkSessionWithSync(
+  resources: PlayerResources,
+  playerClass: PlayerClass,
+  session: WorkSession,
+  pausedAt: string
+): WorkSessionSyncResult {
+  const synced = syncWorkSession(
+    resources,
+    playerClass,
+    session,
+    pausedAt
+  );
+
+  const pausedSession: WorkSession = {
+    ...synced.session,
+    status: 'break',
+    lastUpdatedAt: pausedAt,
+  };
+
+  return {
+    resources: synced.resources,
+    session: pausedSession,
+  };
+}
+
+export function resumeWorkSession(
+  session: WorkSession,
+  resumedAt: string
+): WorkSession {
+  if (session.status !== 'break') {
+    return session;
+  }
+
+  return {
+    ...session,
+    status: 'working',
+    lastUpdatedAt: resumedAt,
   };
 }
