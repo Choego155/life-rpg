@@ -1,9 +1,9 @@
 import { db } from '../database/database';
 
 import {
-    Player,
-    PlayerClass,
-    PlayerResources,
+  Player,
+  PlayerClass,
+  PlayerResources,
 } from '../../domain/player/Player';
 
 type PlayerRow = {
@@ -122,4 +122,25 @@ export function getPlayer(playerId: string): Player | null {
     resources,
     createdAt: playerRow.created_at,
   };
+}
+export function savePlayerResources(
+  playerId: string,
+  resources: PlayerResources
+): void {
+  db.runSync(
+    `
+      UPDATE player_resources
+      SET
+        health = ?,
+        mana = ?,
+        stamina = ?,
+        updated_at = ?
+      WHERE player_id = ?
+    `,
+    resources.health,
+    resources.mana,
+    resources.stamina,
+    new Date().toISOString(),
+    playerId
+  );
 }
