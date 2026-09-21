@@ -9,7 +9,7 @@ import {
 import { CLASS_CONFIG } from '../config/classes';
 
 import {
-  PlayerClass,
+  Player,
   PlayerResources,
 } from '../domain/player/Player';
 
@@ -24,20 +24,14 @@ import {
   startWorkSession,
   updateResourcesFromWorkSession,
 } from '../domain/work/WorkSessionEngine';
-
-const PLAYER_CLASS: PlayerClass = 'wizard';
-
-const classConfig = CLASS_CONFIG[PLAYER_CLASS];
-
-const INITIAL_RESOURCES: PlayerResources = {
-  health: classConfig.maxHealth,
-  mana: classConfig.maxMana,
-  stamina: classConfig.maxStamina,
-};
+import { loadOrCreatePlayer } from '../features/player/PlayerService';
 
 export default function HomeScreen() {
+  const [player, setPlayer] =
+    useState<Player | null>(null);
+
   const [resources, setResources] =
-    useState<PlayerResources>(INITIAL_RESOURCES);
+    useState<PlayerResources | null>(null);
 
   const [session, setSession] =
     useState<WorkSession | null>(null);
@@ -45,6 +39,23 @@ export default function HomeScreen() {
   const [currentTime, setCurrentTime] =
     useState(new Date());
 
+  /*
+   * Al abrir la pantalla:
+   * 1. Busca al jugador en SQLite.
+   * 2. Si no existe, lo crea.
+   * 3. Carga sus recursos.
+   */
+  useEffect(() => {
+    const loadedPlayer =
+      loadOrCreatePlayer();
+
+    setPlayer(loadedPlayer);
+    setResources(loadedPlayer.resources);
+  }, []);
+
+  /*
+   * Reloj visual de la aplicación.
+   */
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -52,6 +63,23 @@ export default function HomeScreen() {
 
     return () => clearInterval(timer);
   }, []);
+
+  /*
+   * Mientras SQLite carga al jugador
+   * mostramos una pantalla sencilla.
+   */
+  if (!player || !resources) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loading}>
+          Cargando aventurero...
+        </Text>
+      </View>
+    );
+  }
+
+  const classConfig =
+    CLASS_CONFIG[player.playerClass];
 
   const isWorking =
     session?.status === 'working';
@@ -64,115 +92,125 @@ export default function HomeScreen() {
     session.status === 'finished';
 
   /*
-   * Mientras trabajamos mostramos los recursos
-   * calculados según el tiempo real transcurrido.
-   *
-   * Durante un descanso no existe desgaste.
+   * Si estamos trabajando, calculamos
+   * visualmente el desgaste en tiempo real.
    */
   const visibleResources =
     isWorking && session
       ? updateResourcesFromWorkSession(
           resources,
-          PLAYER_CLASS,
+          player.playerClass,
           session,
           currentTime.toISOString()
         )
       : resources;
 
-  function handleStartWork() {
-    const now = new Date();
-
-    const newSession = startWorkSession(
-      `session-${Date.now()}`,
-      now.toISOString()
-    );
-
-    setSession(newSession);
-    setCurrentTime(now);
+function handleStartWork() {
+  if (!player || !resources) {
+    return;
   }
 
-  function handlePauseWork() {
-    if (
-      !session ||
-      session.status !== 'working'
-    ) {
-      return;
-    }
+  const now = new Date();
 
-    const now = new Date();
+  const newSession = startWorkSession(
+    `session-${Date.now()}`,
+    now.toISOString()
+  );
 
-    const result = pauseWorkSessionWithSync(
-      resources,
-      PLAYER_CLASS,
+  setSession(newSession);
+  setCurrentTime(now);
+}
+
+
+function handleResumeWork() {
+  if (
+    !session ||
+    session.status !== 'break'
+  ) {
+    return;
+  }
+
+  const now = new Date();
+
+  const resumedSession =
+    resumeWorkSession(
       session,
       now.toISOString()
     );
 
-    setResources(result.resources);
-    setSession(result.session);
-    setCurrentTime(now);
+  setSession(resumedSession);
+  setCurrentTime(now);
+}
+
+ function handlePauseWork() {
+  if (
+    !player ||
+    !resources ||
+    !session ||
+    session.status !== 'working'
+  ) {
+    return;
   }
 
-  function handleResumeWork() {
-    if (
-      !session ||
-      session.status !== 'break'
-    ) {
-      return;
-    }
+  const now = new Date();
 
-    const now = new Date();
+  const result = pauseWorkSessionWithSync(
+    resources,
+    player.playerClass,
+    session,
+    now.toISOString()
+  );
 
-    const resumedSession =
-      resumeWorkSession(
-        session,
-        now.toISOString()
-      );
-
-    setSession(resumedSession);
-    setCurrentTime(now);
-  }
-
+  setResources(result.resources);
+  setSession(result.session);
+  setCurrentTime(now);
+}
   function handleRest() {
-    if (!isOnBreak) {
-      return;
-    }
-
-    const recoveredResources =
-      applyRecoveryAction(
-        resources,
-        PLAYER_CLASS,
-        'rest'
-      );
-
-    setResources(recoveredResources);
+  if (
+    !player ||
+    !resources ||
+    !isOnBreak
+  ) {
+    return;
   }
+
+  const recoveredResources =
+    applyRecoveryAction(
+      resources,
+      player.playerClass,
+      'rest'
+    );
+
+  setResources(recoveredResources);
+}
 
   function handleFinishWork() {
-    if (
-      !session ||
-      (
-        session.status !== 'working' &&
-        session.status !== 'break'
-      )
-    ) {
-      return;
-    }
-
-    const now = new Date();
-
-    const result =
-      finishWorkSessionWithSync(
-        resources,
-        PLAYER_CLASS,
-        session,
-        now.toISOString()
-      );
-
-    setResources(result.resources);
-    setSession(result.session);
-    setCurrentTime(now);
+  if (
+    !player ||
+    !resources ||
+    !session ||
+    (
+      session.status !== 'working' &&
+      session.status !== 'break'
+    )
+  ) {
+    return;
   }
+
+  const now = new Date();
+
+  const result =
+    finishWorkSessionWithSync(
+      resources,
+      player.playerClass,
+      session,
+      now.toISOString()
+    );
+
+  setResources(result.resources);
+  setSession(result.session);
+  setCurrentTime(now);
+}
 
   function formatElapsedTime(): string {
     if (!session?.startedAt) {
@@ -180,7 +218,9 @@ export default function HomeScreen() {
     }
 
     const start =
-      new Date(session.startedAt).getTime();
+      new Date(
+        session.startedAt
+      ).getTime();
 
     const end =
       session.status === 'finished' &&
@@ -241,8 +281,12 @@ export default function HomeScreen() {
         ⚔️ LIFE RPG
       </Text>
 
+      <Text style={styles.playerName}>
+        {player.name}
+      </Text>
+
       <Text style={styles.className}>
-        {classConfig.name} · Nivel 1
+        {classConfig.name} · Nivel {player.level}
       </Text>
 
       <View style={styles.character}>
@@ -354,7 +398,7 @@ export default function HomeScreen() {
       )}
 
       <Text style={styles.note}>
-        Prototipo del sistema de jornada
+        Personaje cargado desde SQLite
       </Text>
     </View>
   );
@@ -369,6 +413,11 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
+  loading: {
+    color: '#FFFFFF',
+    fontSize: 18,
+  },
+
   title: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -376,8 +425,15 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
 
+  playerName: {
+    marginTop: 12,
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+
   className: {
-    marginTop: 8,
+    marginTop: 4,
     color: '#A5A5B0',
     fontSize: 16,
   },
